@@ -780,6 +780,9 @@
       const hasItems = itemsList.querySelectorAll(".item").length > 0;
       emptyState.hidden = hasItems;
       itemsList.hidden = !hasItems;
+      // reforço visual para evitar qualquer problema com o atributo hidden
+      emptyState.style.display = hasItems ? "none" : "flex";
+      itemsList.style.display = hasItems ? "flex" : "none";
     }
 
     function setTyping(show) {
