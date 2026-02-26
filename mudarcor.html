@@ -1,0 +1,53 @@
+<html>
+    <head>
+       <style>
+          
+          body{
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: arial, sans-serif;
+            gap: 20px
+          }
+          h1 {
+            font-size: 40px;
+            cursor: pointer;
+            padding: 18px;
+            border-radius: 10px;
+            transition: colour 0.2s;
+          }
+          div{
+            font-size: 18px;
+            padding:10px 15px ;
+            border: 1px solid #cccc;
+            border-radius:8px ;
+            background: white;
+          }
+
+       </style>
+    </head>
+    <body>
+         <h1 id="titulo">Clique em mim</h1>
+         <div id="resultado"> A cor escolhida vai aparecer aqui</div>
+
+         <script>
+              const titulo= document.getElementById("titulo")
+              const resultado= document.getElementById("resultado")
+
+              function corAleatoria(){
+                 return "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0")
+              }
+              titulo.addEventListener("click", () => {
+                const corText = corAleatoria()
+                const corFundo = corAleatoria()
+
+                titulo.style.color = corText
+                titulo.style.background = corFundo
+        
+              })
+         </script>
+    </body>
+</html>
