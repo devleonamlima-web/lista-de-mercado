@@ -41,14 +41,15 @@
       background: radial-gradient(circle at top, #1e293b 0, #020617 40%, #000 100%);
       color: var(--text);
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: center;
-      padding: 24px 16px;
+      padding: 16px;
     }
 
     .app {
       width: 100%;
-      max-width: 480px;
+      max-width: 960px;
+      max-height: 100vh;
       background: radial-gradient(circle at top left, #111827 0, #020617 45%);
       border-radius: 28px;
       box-shadow: var(--shadow-soft);
@@ -59,7 +60,7 @@
     }
 
     .app-header {
-      padding: 20px 20px 8px;
+      padding: 16px 20px 8px;
       border-bottom: 1px solid rgba(15, 23, 42, 0.9);
       background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.6));
       backdrop-filter: blur(20px);
@@ -79,7 +80,7 @@
     }
 
     .app-title h1 {
-      font-size: 1.25rem;
+      font-size: 1.3rem;
       font-weight: 600;
       letter-spacing: 0.01em;
       display: flex;
@@ -102,7 +103,7 @@
     }
 
     .counter {
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       color: var(--muted);
       padding: 6px 10px;
       border-radius: 999px;
@@ -111,10 +112,12 @@
     }
 
     .app-body {
-      padding: 14px 16px 16px;
+      padding: 12px 16px 14px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
+      flex: 1;
+      overflow: hidden;
     }
 
     .input-row {
@@ -237,7 +240,7 @@
       background: rgba(15, 23, 42, 0.9);
       border: 1px solid rgba(31, 41, 55, 0.9);
       padding: 8px 8px 10px;
-      max-height: 320px;
+      max-height: calc(100vh - 260px);
       overflow-y: auto;
       scrollbar-width: thin;
       scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
@@ -537,11 +540,12 @@
 
     @media (max-width: 768px) {
       body {
-        padding: 16px 10px;
+        padding: 12px 10px;
       }
 
       .app {
         border-radius: 22px;
+        max-height: none;
       }
 
       .input-row {
@@ -562,6 +566,48 @@
 
       .share-btn {
         width: 100%;
+      }
+    }
+
+    @media (min-width: 900px) {
+      body {
+        padding: 24px;
+      }
+
+      .app {
+        border-radius: 32px;
+      }
+
+      .app-header {
+        padding: 18px 24px 10px;
+      }
+
+      .app-body {
+        padding: 14px 18px 16px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+        grid-template-rows: auto auto 1fr;
+        column-gap: 20px;
+        row-gap: 10px;
+      }
+
+      .input-row {
+        grid-column: 1 / 2;
+      }
+
+      .hint {
+        grid-column: 1 / 2;
+      }
+
+      .list-container {
+        grid-column: 2 / 3;
+        grid-row: 1 / 4;
+        max-height: none;
+      }
+
+      .footer-row {
+        justify-content: space-between;
+        flex-wrap: nowrap;
       }
     }
   </style>
@@ -663,22 +709,8 @@
 
     let typingTimeout = null;
 
-    // ID opcional apenas para link (sem tempo real)
     const urlParams = new URLSearchParams(window.location.search);
-    let roomId = urlParams.get("lista") || null;
-
-    function generateRoomId() {
-      return "lista-" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-    }
-
-    function getShareableUrl() {
-      if (!roomId) {
-        roomId = generateRoomId();
-      }
-      const url = new URL(window.location.href);
-      url.searchParams.set("lista", roomId);
-      return url.toString();
-    }
+    const encodedListaFromUrl = urlParams.get("lista") || null;
 
     const emojiMap = [
       { keywords: ["ovo", "ovos"], emoji: "🥚" },
@@ -823,6 +855,69 @@
       return itemEl;
     }
 
+    function getItemsSnapshot() {
+      const nodes = itemsList.querySelectorAll(".item");
+      const arr = [];
+      nodes.forEach((el) => {
+        const name = el.dataset.name || "";
+        const qty = Number(el.dataset.qty || 1);
+        const emoji = el.querySelector(".item-emoji")?.textContent || getEmojiForItem(name);
+        const completed = el.dataset.completed === "1";
+        arr.push({ name, qty, emoji, completed });
+      });
+      return arr;
+    }
+
+    function encodeItemsForUrl(items) {
+      if (!items || !items.length) return "";
+      try {
+        const json = JSON.stringify(items);
+        // encode em UTF-8 e depois base64
+        return btoa(unescape(encodeURIComponent(json)));
+      } catch (e) {
+        console.warn("Falha ao codificar lista na URL:", e);
+        return "";
+      }
+    }
+
+    function decodeItemsFromUrlParam(param) {
+      if (!param) return [];
+      try {
+        const json = decodeURIComponent(escape(atob(param)));
+        const parsed = JSON.parse(json);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter((it) => it && typeof it.name === "string")
+            .map((it) => ({
+              name: it.name || "",
+              qty: Number(it.qty || 1),
+              emoji: it.emoji || getEmojiForItem(it.name || ""),
+              completed: !!it.completed,
+            }));
+        }
+        return [];
+      } catch (e) {
+        console.warn("Falha ao decodificar lista da URL:", e);
+        return [];
+      }
+    }
+
+    function buildShareableUrl() {
+      const items = getItemsSnapshot();
+      const baseUrl = new URL(window.location.href);
+      if (!items.length) {
+        baseUrl.searchParams.delete("lista");
+        return baseUrl.toString();
+      }
+      const encoded = encodeItemsForUrl(items);
+      if (!encoded) {
+        baseUrl.searchParams.delete("lista");
+        return baseUrl.toString();
+      }
+      baseUrl.searchParams.set("lista", encoded);
+      return baseUrl.toString();
+    }
+
     function addItem() {
       const name = itemNameInput.value.trim();
       const qtyValue = itemQtyInput.value.trim();
@@ -851,14 +946,14 @@
     }
 
     function buildWhatsAppMessage() {
-      const items = itemsList.querySelectorAll(".item");
-      if (!items.length) {
+      const nodes = itemsList.querySelectorAll(".item");
+      if (!nodes.length) {
         return "";
       }
 
       const lines = ["Lista de mercado 🛒", ""];
 
-      items.forEach((item, index) => {
+      nodes.forEach((item, index) => {
         const name = item.dataset.name || "";
         const qty = item.dataset.qty || "1";
         const emoji = item.querySelector(".item-emoji")?.textContent || "🛍️";
@@ -876,8 +971,9 @@
         alert("Adicione pelo menos um item antes de compartilhar.");
         return;
       }
-
-      const encoded = encodeURIComponent(message);
+      const link = buildShareableUrl();
+      const fullMessage = `${message}\n\n${link}`;
+      const encoded = encodeURIComponent(fullMessage);
       const url = `https://api.whatsapp.com/send?text=${encoded}`;
       window.open(url, "_blank");
     }
@@ -886,7 +982,7 @@
     shareBtn.addEventListener("click", shareOnWhatsApp);
 
     shareLinkBtn.addEventListener("click", async () => {
-      const url = getShareableUrl();
+      const url = buildShareableUrl();
       try {
         if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(url);
@@ -920,6 +1016,23 @@
         addItem();
       }
     });
+
+    // Se a URL já tiver uma lista codificada, reconstruir os itens
+    if (encodedListaFromUrl) {
+      const itemsFromUrl = decodeItemsFromUrlParam(encodedListaFromUrl);
+      if (itemsFromUrl.length) {
+        itemsFromUrl.forEach((data) => {
+          const itemEl = createItemElement({
+            id: null,
+            name: data.name,
+            qty: data.qty,
+            emoji: data.emoji,
+            completed: data.completed,
+          });
+          itemsList.appendChild(itemEl);
+        });
+      }
+    }
 
     toggleEmptyState();
     updateCounterAndSummary();
